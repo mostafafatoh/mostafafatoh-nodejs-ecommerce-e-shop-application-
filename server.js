@@ -21,7 +21,7 @@ const app = express();
 
 //enable other domain to access your application
 app.use(cors());
-app.options("*", cors());
+app.options(/.*/, cors());
 
 // compress all responses
 app.use(compression());
