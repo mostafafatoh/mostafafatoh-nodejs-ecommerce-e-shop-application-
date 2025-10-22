@@ -168,5 +168,6 @@ exports.webhookCheckout = (req, res) => {
   }
   if (event.type === "checkout.session.completed") {
     console.log("create order here...");
+    console.log(event.data.object.client_reference_id)
   }
 };
