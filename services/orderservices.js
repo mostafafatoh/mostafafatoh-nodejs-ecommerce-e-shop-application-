@@ -3,10 +3,9 @@ const asyncHandler = require("express-async-handler");
 const factory = require("./HandelrFactory");
 const Cart = require("../models/shopingCart");
 const Order = require("../models/orderModel");
+const User = require("../models/UserModel");
 const Product = require("../models/productmodel");
 const Apierror = require("../utiles/apierror");
-const { strip } = require("colors");
-const { concurrency } = require("sharp");
 
 exports.filterUserorder = asyncHandler(async (req, res, next) => {
   if (req.user.role === "user") req.filterobject = { user: req.user._id };
@@ -16,6 +15,18 @@ exports.filterUserorder = asyncHandler(async (req, res, next) => {
 //@ route post /api/v1/orders
 //@ access protected/user
 
+const updateCartAfterOrder = async (cart, cartId) => {
+  const bulkoption = cart.cartIteam.map((item) => ({
+    updateOne: {
+      filter: { _id: item.product },
+      update: { $inc: { quantity: -item.quantity, sold: +item.quantity } },
+    },
+  }));
+  await Product.bulkWrite(bulkoption, {});
+
+  //5-clear cart depend on cartId
+  await Cart.findByIdAndDelete(cartId);
+};
 exports.Cashorder = asyncHandler(async (req, res, next) => {
   //app setting
   const taxtprice = 0;
@@ -44,16 +55,7 @@ exports.Cashorder = asyncHandler(async (req, res, next) => {
   });
   //4-after create order decrement product quantity,increment product sold
   if (order) {
-    const bulkoption = cart.cartIteam.map((item) => ({
-      updateOne: {
-        filter: { _id: item.product },
-        update: { $inc: { quantity: -item.quantity, sold: +item.quantity } },
-      },
-    }));
-    await Product.bulkWrite(bulkoption, {});
-
-    //5-clear cart depend on cartId
-    await Cart.findByIdAndDelete(req.params.cartId);
+    await updateCartAfterOrder(cart, req.params.cartId);
   }
   res.status(201).json({ status: "success", data: order });
 });
@@ -153,6 +155,32 @@ exports.getCheckoutSession = asyncHandler(async (req, res, next) => {
   res.status(200).json({ status: "success", session });
 });
 
+const createCardOrder = async (session) => {
+  const cartid = session.client_reference_id;
+  const shippingAddress = session.metadata;
+  const orderPrice = session.amount_total / 100;
+
+  const cart = await Cart.findById(cartid);
+  const user = await User.findOne({ email: session.customer_email });
+
+  //create order
+  const order = await Order.create({
+    user: user.id,
+    cartIteam: cart.cartIteam,
+    shippingAddress,
+    totalOrderPrice: orderPrice,
+    ispaid: true,
+    paidAt: Date.now(),
+    paymentMethodType: "card",
+  });
+  if (order) {
+    await updateCartAfterOrder(cart, cartid);
+  }
+};
+
+//@desc this webhook will run whent strupe payment success paid
+//route post /webhook-checkout
+//access user
 exports.webhookCheckout = (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
@@ -167,7 +195,8 @@ exports.webhookCheckout = (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
   if (event.type === "checkout.session.completed") {
-    console.log("create order here...");
-    console.log(event.data.object.client_reference_id)
+    //ceate order
+    createCardOrder(event.data.object);
   }
+  res.status(200).json({ received: true });
 };
