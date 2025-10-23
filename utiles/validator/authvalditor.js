@@ -44,11 +44,11 @@ exports.SignUpVal = [
 ];
 
 exports.loginval = [
-  check("email")
-    .notEmpty()
-    .withMessage("email is required")
-    .isEmail()
-    .withMessage("invalid email address"),
+  // check("email")
+  //   .notEmpty()
+  //   .withMessage("email is required")
+  //   .isEmail()
+  //   .withMessage("invalid email address"),
   check("password")
     .notEmpty()
     .withMessage("password is required")

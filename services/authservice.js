@@ -5,6 +5,7 @@ const UserModel = require("../models/UserModel");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utiles/sendEmail");
 const generatetoken = require("../utiles/createtoken");
+const {sanitizeUser} = require("../utiles/sanitizeData");
 const User = require("../models/UserModel");
 const ApiError = require("../utiles/apierror");
 
@@ -19,10 +20,12 @@ exports.signUp = asyncHandler(async (req, res, next) => {
     email: req.body.email,
     password: req.body.password,
   });
+  console.log(req.body);
+
   //generate token
   const token = generatetoken(User._id, User.email);
   //send res to client side
-  res.status(201).json({ data: User, token });
+  res.status(201).json({ data: sanitizeUser(User), token });
 });
 
 //@desc  login
@@ -39,7 +42,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   //3-generate token
   const token = generatetoken(user._id, user.email);
-  res.status(200).json({ data: user, token });
+  res.status(200).json({ data: sanitizeUser(user), token });
 });
 
 /// desc check if user is logged in

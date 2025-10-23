@@ -47,6 +47,7 @@ exports.resizeimage = asyncHandler(async (req, res, next) => {
     );
     next();
   }
+
 });
 
 
